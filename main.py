@@ -13,7 +13,6 @@ client = genai.Client(api_key="YOUR_API_KEY_HERE")
 @app.get("/")
 def read_root():
     return {"message": "Gemini SDK is ready!"}
-from tavily import TavilyClient
 from fastapi import FastAPI
 
 app = FastAPI()
