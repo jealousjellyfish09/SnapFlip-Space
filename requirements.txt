@@ -1,4 +1,3 @@
-flask
-google-generativeai
-tavily-python
-python-dotenv
+fastapi
+uvicorn
+gunicorn
