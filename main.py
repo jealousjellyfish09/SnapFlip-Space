@@ -3,8 +3,17 @@ import io
 import json
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from pydantic import BaseModel
-from google import gemini
+import google.generativeai as genai
+from fastapi import FastAPI
+from google import genai
 from google.genai import types
+
+app = FastAPI()
+client = genai.Client(api_key="YOUR_API_KEY_HERE")
+
+@app.get("/")
+def read_root():
+    return {"message": "Gemini SDK is ready!"}
 from tavily import TavilyClient
 from fastapi import FastAPI
 
