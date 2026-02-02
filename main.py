@@ -1,34 +1,63 @@
 import os
-from flask import Flask, request, jsonify
-import google.generativeai as genai
+import io
+import json
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from pydantic import BaseModel
+from google import genai
+from google.genai import types
 from tavily import TavilyClient
 
-app = Flask(__name__)
+# 1. Initialize API Clients
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY")
 
-# Configure your API Keys (Set these in your server environment variables)
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-tavily = TavilyClient(api_key=os.environ.get("TAVILY_API_KEY"))
+app = FastAPI()
+genai_client = genai.Client(api_key=GEMINI_API_KEY)
+tavily_client = TavilyClient(api_key=TAVILY_API_KEY)
 
-@app.route('/analyze', methods=['POST'])
-def analyze_product():
-    if 'image' not in request.files:
-        return jsonify({"error": "No image uploaded"}), 400
-    
-    image_file = request.files['image']
-    
-    # 1. Gemini identifies the product
-    model = genai.GenerativeModel('gemini-1.5-flash')
-    vision_response = model.generate_content(["Identify this product and give me its exact name.", image_file.read()])
-    product_name = vision_response.text.strip()
+class SnapFlipResponse(BaseModel):
+    brand: str
+    item_name: str
+    suggested_price: str
+    condition: str
+    description: str
+    seo_title: str
 
-    # 2. Tavily finds the best prices
-    search_query = f"buy {product_name} best price online"
-    search_results = tavily.search(query=search_query, max_results=3)
+@app.post("/process", response_model=SnapFlipResponse)
+async def process_image(file: UploadFile = File(...)):
+    try:
+        image_bytes = await file.read()
+        
+        # --- PHASE 1: Vision AI ---
+        prompt = "Analyze this item. Return JSON with: brand, item_name, condition (1-10), seo_title (80 chars), and 3-bullet description."
+        
+        vision_response = genai_client.models.generate_content(
+            model="gemini-2.0-flash", 
+            contents=[types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"), prompt],
+            config=types.GenerateContentConfig(response_mime_type="application/json")
+        )
+        
+        item_info = json.loads(vision_response.text)
+        
+        # --- PHASE 2: Pricing ---
+        search_query = f"recent sold price for {item_info.get('brand')} {item_info.get('item_name')}"
+        search_results = tavily_client.search(query=search_query, max_results=3)
+        
+        price_prompt = f"Based on these results: {search_results}, what is the average SOLD price? Return ONLY the number."
+        price_response = genai_client.models.generate_content(model="gemini-2.0-flash", contents=price_prompt)
+        
+        return SnapFlipResponse(
+            brand=item_info.get("brand", "Unknown"),
+            item_name=item_info.get("item_name", "Unknown"),
+            suggested_price=price_response.text.strip(),
+            condition=str(item_info.get("condition", "N/A")),
+            description=item_info.get("description", ""),
+            seo_title=item_info.get("seo_title", "")
+        )
 
-    return jsonify({
-        "product": product_name,
-        "deals": search_results['results']
-    })
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=7860)
