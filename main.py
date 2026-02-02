@@ -3,7 +3,6 @@ import io
 import json
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from pydantic import BaseModel
-import google.generativeai as genai
 from fastapi import FastAPI
 from google import genai
 from google.genai import types
