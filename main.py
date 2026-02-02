@@ -3,7 +3,7 @@ import io
 import json
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from pydantic import BaseModel
-from google import genai
+from google import gemini
 from google.genai import types
 from tavily import TavilyClient
 from fastapi import FastAPI
