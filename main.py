@@ -1,11 +1,10 @@
-import os
-import io
-import json
-from fastapi import FastAPI, UploadFile, File, HTTPException
-from pydantic import BaseModel
-from google import genai
-from google.genai import types
-from tavily import TavilyClient
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/")
+def read_root():
+    return {"status": "success", "message": "Render is working!"}
 
 # 1. Initialize API Clients
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
